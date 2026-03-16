@@ -3,22 +3,26 @@ package database
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func Connect() (*pgx.Conn, error) {
+func Connect() (*pgxpool.Pool, error) {
 
 	connStr := os.Getenv("DB_URL")
+	if connStr == "" {
+    log.Fatal("DB_URL not set")
+}
 
-	conn, err := pgx.Connect(context.Background(), connStr)
+	pool, err := pgxpool.New(context.Background(), connStr)
 	if err != nil {
 		return nil, err
 	}
 
 	fmt.Println("Connected to postgres")
 
-	return conn, nil
+	return pool, nil
 
 }

@@ -2,61 +2,37 @@ package main
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/TheAlok15/email-verification-system/internal/database"
-	"github.com/TheAlok15/email-verification-system/internal/models"
+	"github.com/TheAlok15/email-verification-system/internal/handler"
+	"github.com/TheAlok15/email-verification-system/internal/worker"
+	"github.com/joho/godotenv"
 )
 
 func main() {
 
-	conn, err := database.Connect()
+	godotenv.Load()
+	fmt.Println(os.Getenv("DB_URL"))
+
+	pool, err := database.Connect()
 	if err != nil {
 		log.Fatal("Error connection to db ", err)
 
 	}
 
-	defer conn.Close(context.Background())
+	defer pool.Close()
 
-	http.HandleFunc("/verify", func(w http.ResponseWriter, r *http.Request) {
+	ctx := context.Background()
 
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
+	w := worker.NewWorker(pool)
 
-		var req models.Input
-		err := json.NewDecoder(r.Body).Decode(&req)
-		if err != nil {
-			http.Error(w, "Invalid JSON", http.StatusBadRequest)
-			return
-		}
+	w.Start(ctx, 5)
 
-		var jobID string
-		err = conn.QueryRow(
-			context.Background(),
-			`INSERT INTO jobs(email,status)
-			VALUES($1, 'pending') RETURNING ID`,
-			req.Email,
-		).Scan(&jobID)
-
-		if err != nil {
-			log.Println("DB ERROR:", err)
-			http.Error(w, "DB insert fails", http.StatusInternalServerError)
-			return
-		}
-
-		response := map[string]string{
-			"job_id": jobID,
-			"status": "pending",
-		}
-
-		w.Header().Set("Content-type", "application/json")
-		json.NewEncoder(w).Encode(response)
-
-	})
+	http.HandleFunc("/verify", handler.VerifyHandler(pool))
 
 	log.Println("Server running on :8080")
 	http.ListenAndServe(":8080", nil)
