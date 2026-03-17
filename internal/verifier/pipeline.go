@@ -14,6 +14,11 @@ func VerifyEmail(email string) (*core.VerificationContext, error) {
 	validatorsList := []core.Validator{
 		validators.SyntaxValidator{},
 		validators.DomainExtractor{},
+		validators.DisposableValidator{},
+		validators.RoleBasedValidator{},
+		validators.MXValidator{},
+		validators.SPFValidator{},
+		validators.DMARCValidator{},
 	}
 
 	for _, v := range validatorsList {
